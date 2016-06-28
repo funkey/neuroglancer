@@ -50,7 +50,8 @@ export class MeshSource extends GenericMeshSource {
 };
 
 interface ScaleInfo {
-  key: string;
+  volumeKey: string;
+  scaleKey: string;
   lowerVoxelBound: Vec3;
   upperVoxelBound: Vec3;
   chunkDataSizes?: Vec3[];
@@ -60,7 +61,8 @@ interface ScaleInfo {
 function parseScaleInfo(obj: any) {
   verifyObject(obj);
   return {
-    key: verifyObjectProperty(obj, 'key', verifyString),
+    volumeKey: verifyObjectProperty(obj, 'volume_key', verifyString),
+    scaleKey: verifyObjectProperty(obj, 'scale_key', verifyString),
     lowerVoxelBound:
         verifyObjectProperty(obj, 'lowerVoxelBound', x => parseIntVec(vec3.create(), x)),
     upperVoxelBound:
@@ -106,7 +108,7 @@ export class MultiscaleVolumeChunkSource implements GenericMultiscaleVolumeChunk
             chunkDataSizes: scaleInfo.chunkDataSizes,
           })
           .map(spec => {
-            let parameters = {baseUrls: this.baseUrls, key: scaleInfo.key, encoding: encoding};
+            let parameters = {baseUrls: this.baseUrls, key: scaleInfo.volumeKey, scaleKey: scaleInfo.scaleKey, encoding: encoding};
             return chunkManager.getChunkSource(
                 VolumeChunkSource, stableStringify(parameters),
                 () => new VolumeChunkSource(chunkManager, spec, parameters));

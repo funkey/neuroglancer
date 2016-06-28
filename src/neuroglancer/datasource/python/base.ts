@@ -23,11 +23,12 @@ export enum VolumeChunkEncoding {
 export interface VolumeChunkSourceParameters {
   baseUrls: string[];
   key: string;
+  scaleKey: string;
   encoding: VolumeChunkEncoding;
 }
 
 export function volumeSourceToString(parameters: VolumeChunkSourceParameters) {
-  return `python:volume:${parameters['baseUrls'][0]}/${parameters['key']}/${VolumeChunkEncoding[parameters['encoding']]}`;
+  return `python:volume:${parameters['baseUrls'][0]}/${parameters['key']}/${parameters['scaleKey']}/${VolumeChunkEncoding[parameters['encoding']]}`;
 }
 
 export interface MeshSourceParameters {
