@@ -36,7 +36,7 @@ from . import static
 info_path_regex = re.compile(r'^/neuroglancer/info/([^/]+)$')
 
 data_path_regex = re.compile(
-    r'^/neuroglancer/([^/]+)/([^/]+)/([0-9]+),([0-9]+)/([0-9]+),([0-9]+)/([0-9]+),([0-9]+)$')
+    r'^/neuroglancer/([^/]+)/([^/]+)/([^/]+)/([0-9]+),([0-9]+)/([0-9]+),([0-9]+)/([0-9]+),([0-9]+)$')
 
 mesh_path_regex = re.compile(
     r'^/neuroglancer/mesh/([^/]+)/([0-9]+)$')
@@ -76,8 +76,9 @@ class RequestHandler(BaseHTTPRequestHandler):
       self.handle_data_request(
           token=m.group(2),
           data_format=m.group(1),
-          start=(int(m.group(3)), int(m.group(5)), int(m.group(7))),
-          end=(int(m.group(4)), int(m.group(6)), int(m.group(8))))
+          scale_key=m.group(3),
+          start=(int(m.group(4)), int(m.group(6)), int(m.group(8))),
+          end=(int(m.group(5)), int(m.group(7)), int(m.group(9))))
       return
     m = re.match(mesh_path_regex, self.path)
     if m is not None:
@@ -108,13 +109,13 @@ class RequestHandler(BaseHTTPRequestHandler):
     self.end_headers()
     self.wfile.write(data)
 
-  def handle_data_request(self, token, data_format, start, end):
+  def handle_data_request(self, token, scale_key, data_format, start, end):
     volume = self.server.volumes.get(token)
     if volume is None:
       self.send_error(404)
       return
     try:
-      data, content_type = volume.get_encoded_subvolume(data_format, start, end)
+      data, content_type = volume.get_encoded_subvolume(data_format, start, end, scale_key=scale_key)
     except ValueError as e:
       self.send_error(400, x.args[0])
       return

@@ -16,8 +16,19 @@ from __future__ import absolute_import
 
 import numpy as np
 
-from .token import make_random_token
 from .chunks import encode_jpeg, encode_npz, encode_raw
+from .token import make_random_token
+from scipy.ndimage import zoom
+
+# scale dependent:
+#   shape (in voxels)
+#   offset (in voxels)
+#   voxel_size
+# new:
+#   scales
+
+def scale_tuple(t, f):
+    return tuple([x*f for x in t])
 
 class ServedVolume(object):
   def __init__(self,
@@ -26,24 +37,27 @@ class ServedVolume(object):
                voxel_size=(1, 1, 1),
                encoding='npz',
                chunk_data_sizes=None,
-               volume_type=None):
+               volume_type=None,
+               scales = [1, 2, 4, 8]):
     """Initializes a ServedVolume.
 
     @param data 3-d [z, y, x] array or 4-d [channel, z, y, x] array.
     """
     self.token = make_random_token()
+    self.scales = scales
+    self.scale_key_to_index = { self.scale_key(s) : i for (i,s) in enumerate(self.scales) }
     if len(data.shape) == 3:
       self.num_channels = 1
-      self.shape = data.shape[::-1]
+      self.shape = { s: scale_tuple(data.shape[::-1], 1.0/s) for s in self.scales }
     else:
       if len(data.shape) != 4:
         raise ValueError('data array must be 3- or 4-dimensional.')
       self.num_channels = data.shape[0]
-      self.shape = data.shape[1:][::-1]
+      self.shape = { s: scale_tuple(data.shape[1:][::-1], 1.0/s) for s in self.scales }
 
     self.data = data
-    self.voxel_size = voxel_size
-    self.offset = offset
+    self.voxel_size = { s: scale_tuple(tuple(float(x) for x in voxel_size), s) for s in self.scales }
+    self.offset = { s: scale_tuple(offset, s) for s in self.scales }
     self.data_type = data.dtype.name
     self.encoding = encoding
     if chunk_data_sizes is not None:
@@ -63,33 +77,55 @@ class ServedVolume(object):
     self.volume_type = volume_type
 
   def info(self):
-    upper_voxel_bound = tuple(np.array(self.offset) + np.array(self.shape))
+    upper_voxel_bound = { s : tuple(np.array(self.offset[s]) + np.array(self.shape[s])) for s in self.scales }
     info = dict(volumeType=self.volume_type,
                 dataType=self.data_type,
                 encoding=self.encoding,
                 numChannels=self.num_channels,
                 scales=[
-                    dict(key=self.token,
-                         lowerVoxelBound=self.offset,
-                         upperVoxelBound=upper_voxel_bound,
-                         voxelSize=self.voxel_size),
+                    dict(volume_key=self.token,
+                         scale_key=self.scale_key(s),
+                         lowerVoxelBound=self.offset[s],
+                         upperVoxelBound=upper_voxel_bound[s],
+                         voxelSize=self.voxel_size[s])
+                    for s in self.scales
                 ])
     if self.chunk_data_sizes is not None:
       info['chunkDataSizes'] = self.chunk_data_sizes
     return info
 
-  def get_encoded_subvolume(self, data_format, start, end):
-    offset = self.offset
-    shape = self.shape
+  def scale_key(self, scale):
+    return str(scale)
+
+  def get_encoded_subvolume(self, data_format, start, end, scale_key=None):
+    scale = 1
+    if scale_key is not None:
+        scale = self.scales[self.scale_key_to_index[scale_key]]
+    offset = self.offset[scale]
+    shape = self.shape[scale]
+    print("offset: " + str(offset))
+    print("shape : " + str(shape))
+    print("start : " + str(start))
+    print("end   : " + str(end))
+    print("scale : " + str(scale))
     for i in xrange(3):
       if end[i] < start[i] or offset[i] > start[i] or end[i] - offset[i] > shape[i]:
         raise ValueError('Out of bounds data request.')
 
-    indexing_expr = tuple(np.s_[start[i] - offset[i]:end[i] - offset[i]] for i in (2,1,0))
+    indexing_expr = tuple(np.s_[(start[i] - offset[i])*scale:(end[i] - offset[i])*scale] for i in (2,1,0))
+    print("indexing expression: " + str(indexing_expr))
     if len(self.data.shape) == 3:
       subvol = self.data[indexing_expr]
+      if scale != 1:
+        print("subvol was: " + str(subvol.shape))
+        subvol = zoom(subvol, 1.0/scale)
+        print("subvol is : " + str(subvol.shape))
     else:
       subvol = self.data[(np.s_[:],) + indexing_expr]
+      if scale != 1:
+        print("subvol was: " + str(subvol.shape))
+        subvol = np.array([ zoom(subvol[c], 1.0/scale) for c in xrange(subvol.shape[0]) ])
+        print("subvol is : " + str(subvol.shape))
     content_type = 'application/octet-stream'
     if data_format == 'jpeg':
       data = encode_jpeg(subvol)
