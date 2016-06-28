@@ -3,8 +3,8 @@ from __future__ import print_function
 import neuroglancer
 import numpy as np
 
-ix, iy, iz = np.meshgrid(*[np.linspace(0, 1, n) for n in [100, 100, 100]])
-a = np.zeros((3, 100,100,100), dtype=np.float32)
+ix, iy, iz = np.meshgrid(*[np.linspace(0, 1, n) for n in [1000, 10, 1000]])
+a = np.zeros((3, 10,1000,1000), dtype=np.float32)
 a[0,:,:,:] = np.cast[np.float32](np.abs(np.sin(4 * (ix + iy))))
 a[1,:,:,:] = np.cast[np.float32](np.abs(np.sin(4 * (iy + iz))))
 a[2,:,:,:] = np.cast[np.float32](np.abs(np.sin(4 * (ix + iz))))
@@ -17,7 +17,7 @@ b = np.cast[np.uint32](np.floor(np.sqrt((ix - 0.5)**2 + (iy - 0.5)**2 + (iz - 0.
 #   python setup.py bundle_client
 #
 # has not been run.
-neuroglancer.set_static_content_source(url='https://neuroglancer-demo.appspot.com')
+#neuroglancer.set_static_content_source(url='https://neuroglancer-demo.appspot.com')
 
 viewer = neuroglancer.Viewer()
 viewer.add(a,
