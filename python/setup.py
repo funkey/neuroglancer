@@ -34,9 +34,9 @@ class bundle_client(build):
         build_dir = os.path.join(project_dir, 'dist/' + self.client_bundle_type)
         static_dir = os.path.join(this_dir, 'neuroglancer/static')
 
-        print "Project dir " + project_dir
-        print "Build dir " + build_dir
-        print "Static dir " + static_dir
+        print("Project dir " + project_dir)
+        print("Build dir " + build_dir)
+        print("Static dir " + static_dir)
 
         prev_dir = os.path.abspath('.')
         os.chdir(project_dir)
